@@ -91,10 +91,33 @@ public class Server {
                         break;
 
                     case 4:
-                        // Prints income, expense, and donation totals
-                        out.println("Income total: $" + income.getTotalIncome());
-                        out.println("Expense total: $" + expense.getTotalExpenses());
-                        out.println("Donation total: $" + donation.getTotalDonations());
+                        // gets all values that were gathered
+                        double totalIncome = income.getTotalIncome();
+                        double totalExpenses = expense.getTotalExpenses();
+                        double totalDonations = donation.getTotalDonations();
+
+                        // Show individual totals, along with the grand balance
+                        System.out.println("Total income: $" + totalIncome);
+                        System.out.println("-----------");
+                        System.out.println("Total expenses: $" + totalExpenses);
+                        System.out.println("-----------");
+                        System.out.println("Total donations: $" + totalDonations);
+
+                        donation.printCharities();
+                        System.out.println("-----------");
+
+                        // Adds and subtracts all respective values and displays them
+                        double finalBalance = totalIncome - totalExpenses - totalDonations;
+                        double totalSpending = totalExpenses + totalDonations;
+
+                        // Final balance is displayed
+                        // Shows the status message of how the user is doing in regards to spending and saving
+                        System.out.println("Final balance: $" + finalBalance);
+                        if (finalBalance < totalSpending) {
+                            System.out.println("You are spending more than you are earning. Consider reducing expenses or increasing income.");
+                        } else if (finalBalance > totalSpending) {
+                            System.out.println("You are saving more than you are spending. Good job!");
+                        }
                         break;
 
                     case 5:

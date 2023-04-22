@@ -103,8 +103,6 @@ public class Manager {
                             System.out.println("You are spending more than you are earning. Consider reducing expenses or increasing income.");
                         } else if (finalBalance > totalSpending) {
                             System.out.println("You are saving more than you are spending. Good job!");
-                        } else if (finalBalance < 0) {
-                            System.out.println("You have an overdraft. You may be subject to overdraft fees.");
                         }
                         break;
 
