@@ -1,139 +1,116 @@
 package edu.sdccd.cisc191.template;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.HashMap;
+import java.util.Map;
 
 public class Server {
-    private static final int PORT = 8080;
+    private static final int PORT = 1234;
+    private static Map<String, String> passwordStorage = new HashMap<>();
 
     public static void main(String[] args) {
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
-            System.out.println("Server started");
+            System.out.println("Server started. Listening on port " + PORT);
 
             while (true) {
-                // Accept a new client connection
                 Socket clientSocket = serverSocket.accept();
-                System.out.println("Client connected: " + clientSocket.getInetAddress().getHostAddress());
+                System.out.println("Client connected: " + clientSocket.getInetAddress());
 
-                handleClient(clientSocket);
-
-                // Close the client socket
-                clientSocket.close();
+                new Thread(() -> handleClient(clientSocket)).start();
             }
-
         } catch (IOException e) {
-            System.err.println("Error while starting the server: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
-    private static void handleClient(Socket clientSocket) throws IOException {
-        try (BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-             PrintWriter out = new PrintWriter(new OutputStreamWriter(clientSocket.getOutputStream()), true)) {
+    private static void handleClient(Socket clientSocket) {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+             PrintWriter writer = new PrintWriter(clientSocket.getOutputStream(), true)) {
 
-            // Initialize the modules
-            Income income = new Income();
-            Expense expense = new Expense();
-            Donations donation = new Donations();
+            String request;
+            while ((request = reader.readLine()) != null) {
+                String[] requestParts = request.split(":");
 
-            boolean running = true;
-            while (running) {
-                // Display options to the client
-                out.println("Choose an option:");
-                out.println("1. Add income");
-                out.println("2. Add expense");
-                out.println("3. Add donation");
-                out.println("4. Generate financial report");
-                out.println("5. Quit");
-
-                // Receive the user's choice from the client
-                int choice = Integer.parseInt(in.readLine());
-
-                // Handle the user's choice
-                switch (choice) {
-                    case 1:
-                        // Takes values from income
-                        // Prints these values and adds them up.
-                        out.println("Enter income amount:");
-                        double incomeAmount = Double.parseDouble(in.readLine());
-                        if (incomeAmount <= 0) {
-                            out.println("Invalid input. Please enter a number greater than zero.");
-                        } else {
-                            income.transaction(incomeAmount);
-                            out.println("$" + incomeAmount + " added to income");
-                        }
+                String response;
+                switch (requestParts[0]) {
+                    case "GENERATE":
+                        response = generateAndSavePassword(requestParts[1], Integer.parseInt(requestParts[2]),
+                                Boolean.parseBoolean(requestParts[3]), Boolean.parseBoolean(requestParts[4]),
+                                Boolean.parseBoolean(requestParts[5]));
                         break;
-
-                    case 2:
-                        // Takes values from expenses
-                        // Prints these values and adds them up, subtracts from income
-                        out.println("Enter expense amount:");
-                        double expenseAmount = Double.parseDouble(in.readLine());
-                        if (expenseAmount <= 0) {
-                            out.println("Invalid input. Please enter a number greater than zero.");
-                        } else {
-                            expense.transaction(expenseAmount);
-                            out.println("$" + expenseAmount + " added to expenses");
-                        }
+                    case "RETRIEVE":
+                        response = retrievePassword(requestParts[1]);
                         break;
-
-                    case 3:
-                        // Takes values from donations
-                        // Prints these values and adds them up.
-                        out.println("Enter donation amount:");
-                        double donationAmount = Double.parseDouble(in.readLine());
-                        if (donationAmount <= 0) {
-                            out.println("Invalid input. Please enter a number greater than zero.");
-                        } else {
-                            donation.transaction(donationAmount);
-                            out.println("$" + donationAmount + " added to donations");
-                        }
+                    case "STORE":
+                        response = storePassword(requestParts[1], requestParts[2]);
                         break;
-
-                    case 4:
-                        // gets all values that were gathered
-                        double totalIncome = income.getTotalIncome();
-                        double totalExpenses = expense.getTotalExpenses();
-                        double totalDonations = donation.getTotalDonations();
-
-                        // Show individual totals, along with the grand balance
-                        System.out.println("Total income: $" + totalIncome);
-                        System.out.println("-----------");
-                        System.out.println("Total expenses: $" + totalExpenses);
-                        System.out.println("-----------");
-                        System.out.println("Total donations: $" + totalDonations);
-
-                        donation.printCharities();
-                        System.out.println("-----------");
-
-                        // Adds and subtracts all respective values and displays them
-                        double finalBalance = totalIncome - totalExpenses - totalDonations;
-                        double totalSpending = totalExpenses + totalDonations;
-
-                        // Final balance is displayed
-                        // Shows the status message of how the user is doing in regards to spending and saving
-                        System.out.println("Final balance: $" + finalBalance);
-                        if (finalBalance < totalSpending) {
-                            System.out.println("You are spending more than you are earning. Consider reducing expenses or increasing income.");
-                        } else if (finalBalance > totalSpending) {
-                            System.out.println("You are saving more than you are spending. Good job!");
-                        }
+                    case "CHANGE":
+                        response = changePassword(requestParts[1], requestParts[2]);
                         break;
-
-                    case 5:
-                        // Quit the program
-                        out.println("Goodbye!");
-                        running = false;
+                    case "DELETE":
+                        response = deletePassword(requestParts[1]);
                         break;
-
+                    case "QUIT":
+                        response = "Goodbye!";
+                        break;
                     default:
-                        // Handle invalid input
-                        out.println("Invalid input. Please enter a number between 1 and 5.");
+                        response = "Invalid request";
                         break;
+                }
+
+                writer.println(response);
+
+                if (requestParts[0].equals("QUIT")) {
+                    System.out.println("Client disconnected: " + clientSocket.getInetAddress());
+                    break;
                 }
             }
         } catch (IOException e) {
-            System.err.println("Error while handling client request: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private static String generateAndSavePassword(String website, int length, boolean includeSymbols,
+                                                  boolean includeNumbers, boolean includeLetters) {
+        String password = PasswordGenerator.generateRandomPassword(length, includeSymbols, includeNumbers, includeLetters);
+        passwordStorage.put(website, password);
+        return "Generated password: " + password;
+    }
+
+    private static String retrievePassword(String website) {
+        String password = passwordStorage.get(website);
+        if (password != null) {
+            return "Password for " + website + ": " + password;
+        } else {
+            return "No password found for " + website + ".";
+        }
+    }
+
+    private static String storePassword(String website, String password) {
+        passwordStorage.put(website, password);
+        return "Password saved for " + website + ".";
+    }
+
+    private static String changePassword(String website, String newPassword) {
+        if (passwordStorage.containsKey(website)) {
+            passwordStorage.put(website, newPassword);
+            return "Password for " + website + " changed successfully.";
+        } else {
+            return "No password found for " + website + ".";
+        }
+    }
+
+    private static String deletePassword(String website) {
+        if (passwordStorage.containsKey(website)) {
+            passwordStorage.remove(website);
+            return "Password for " + website + " removed successfully.";
+        } else {
+            return "No password found for " + website + ".";
         }
     }
 }

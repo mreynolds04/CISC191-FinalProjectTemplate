@@ -1,136 +1,129 @@
 package edu.sdccd.cisc191.template;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.util.InputMismatchException;
 import java.util.Scanner;
 
 public class Client {
+    private static final String SERVER_ADDRESS = "localhost";
+    private static final int SERVER_PORT = 1234;
 
-    // MAIN CLASS FOR THE PROGRAM
-    // Gathers all the data from Income, Expense, and Donations
+    public static void main(String[] args) {
+        try (Socket socket = new Socket(SERVER_ADDRESS, SERVER_PORT);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+             PrintWriter writer = new PrintWriter(socket.getOutputStream(), true)) {
 
-    // PROGRAM USES MODULE 1, 4, 5, 6, 7
-    public static void main(String[] args) throws Exception {
-        // Declares variables and allows for user to input the amounts (module 5)
-        Scanner sc = new Scanner(System.in);
-        Income income = new Income();
-        Expense expense = new Expense();
-        Donations donation = new Donations();
+            System.out.println("Connected to server.");
 
-        // Connect to server
-        Socket socket = new Socket("localhost", 8080);
-        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            Scanner scanner = new Scanner(System.in);
 
-        boolean running = true;
-        while (running) {
-            // Displays all options
-            System.out.println("Choose an option:");
-            System.out.println("1. Add income");
-            System.out.println("2. Add expense");
-            System.out.println("3. Add donation");
-            System.out.println("4. Generate financial report");
-            System.out.println("5. Quit");
+            System.out.println("Welcome to The Best Password Manager Ever!");
 
-            try {
-                int choice = sc.nextInt();
-                sc.nextLine();
+            boolean generateMorePasswords = true;
 
-                switch (choice) {
+            while (generateMorePasswords) {
+                System.out.println("\nPlease select an option:");
+                System.out.println("1. Generate and save a password");
+                System.out.println("2. Look up a saved password");
+                System.out.println("3. Add a new password manually");
+                System.out.println("4. Change a saved password");
+                System.out.println("5. Remove a saved password");
+                System.out.println("6. Quit");
+
+                int option = scanner.nextInt();
+                scanner.nextLine(); // Consume the newline character
+
+                String request;
+                switch (option) {
                     case 1:
-                        // Takes values from income
-                        // Prints these values and adds them up.
-                        System.out.println("Enter income amount:");
-                        double incomeAmount = sc.nextDouble();
-                        if (incomeAmount <= 0) {
-                            System.out.println("Invalid input. Please enter a number greater than zero.");
-                        } else {
-                            income.transaction(incomeAmount);
-                            System.out.println("$" + incomeAmount + " added to income");
-                            System.out.println("Current income balance: $" + income.getTotalIncome());
-                        }
+                        // Generate and save a password
+                        String website = getPasswordFromUser(scanner, "Enter the website: ");
+                        int length = getPasswordLengthFromUser(scanner);
+                        boolean includeSymbols = shouldIncludeSymbolsFromUser(scanner);
+                        boolean includeNumbers = shouldIncludeNumbersFromUser(scanner);
+                        boolean includeLetters = shouldIncludeLettersFromUser(scanner);
+                        request = "GENERATE:" + website + ":" + length + ":" + includeSymbols + ":" + includeNumbers + ":" + includeLetters;
                         break;
 
                     case 2:
-                        // Takes values from expenses
-                        // Prints these values and adds them up, subtracts from income
-                        System.out.println("Enter expense amount:");
-                        double expenseAmount = sc.nextDouble();
-                        if (expenseAmount <= 0) {
-                            System.out.println("Invalid input. Please enter a number greater than zero.");
-                        } else {
-                            expense.transaction(expenseAmount);
-                            System.out.println("$" + expenseAmount + " added to expenses");
-                            System.out.println("Current expense balance: $" + expense.getTotalExpenses());
-                        }
+                        // Look up a saved password
+                        website = getPasswordFromUser(scanner, "Enter the website to look up the password: ");
+                        request = "RETRIEVE:" + website;
                         break;
 
                     case 3:
-                        // Takes values from donations
-                        // Prints these values and adds them up, subtracts from income
-                        // Displays which individual charities you donated to, along with the amount for each
-                        System.out.println("Enter donation amount:");
-                        double donationAmount = sc.nextDouble();
-                        if (donationAmount <= 0) {
-                            System.out.println("Invalid input. Please enter a number greater than zero.");
-                        } else {
-                            donation.transaction(donationAmount);
-                            System.out.println("$" + donationAmount + " donated to charity");
-                            System.out.println("Current donation balance: $" + donation.getTotalDonations());
-                        }
+                        // Add a new password manually
+                        website = getPasswordFromUser(scanner, "Enter the website: ");
+                        String password = getPasswordFromUser(scanner, "Enter the password: ");
+                        request = "STORE:" + website + ":" + password;
                         break;
 
                     case 4:
-                        // gets all values that were gathered
-                        double totalIncome = income.getTotalIncome();
-                        double totalExpenses = expense.getTotalExpenses();
-                        double totalDonations = donation.getTotalDonations();
-
-                        // Show individual totals, along with the grand balance
-                        System.out.println("Total income: $" + totalIncome);
-                        System.out.println("-----------");
-                        System.out.println("Total expenses: $" + totalExpenses);
-                        System.out.println("-----------");
-                        System.out.println("Total donations: $" + totalDonations);
-
-                        donation.printCharities();
-                        System.out.println("-----------");
-
-                        // Adds and subtracts all respective values and displays them
-                        double finalBalance = totalIncome - totalExpenses - totalDonations;
-                        double totalSpending = totalExpenses + totalDonations;
-
-                        // Final balance is displayed
-                        // Shows the status message of how the user is doing in regards to spending and saving
-                        System.out.println("Final balance: $" + finalBalance);
-                        if (finalBalance < totalSpending) {
-                            System.out.println("You are spending more than you are earning. Consider reducing expenses or increasing income.");
-                        } else if (finalBalance > totalSpending) {
-                            System.out.println("You are saving more than you are spending. Good job!");
-                        }
-                            break;
+                        // Change a saved password
+                        website = getPasswordFromUser(scanner, "Enter the website to change the password: ");
+                        password = getPasswordFromUser(scanner, "Enter the new password: ");
+                        request = "CHANGE:" + website + ":" + password;
+                        break;
 
                     case 5:
-                        // Exits program
-                        running = false;
+                        // Remove a saved password
+                        website = getPasswordFromUser(scanner, "Enter the website to remove the password: ");
+                        request = "DELETE:" + website;
+                        break;
+
+                    case 6:
+                        // Quit the program
+                        request = "QUIT";
+                        generateMorePasswords = false;
                         break;
 
                     default:
-                        // invalid choice, shows menu again
-                        System.out.println("Invalid choice.");
+                        System.out.println("Invalid option. Please try again.");
+                        continue;
+                }
+
+                writer.println(request);
+
+                String response = reader.readLine();
+                System.out.println("\nServer response: " + response);
+
+                if (option == 6) {
+                    System.out.println("Disconnected from server.");
+                    break;
                 }
             }
-            catch (InputMismatchException e) {
-                // if a letter or special character is included in the input, this exception is handled
-                // it prompts the user to enter a valid input
-                // only integers are allowed when the program asks which choice
 
-                System.out.println("Invalid input. Please enter a number (integer or two decimals).");
-                sc.next();
-            }
+            scanner.close();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
+    }
+
+    private static String getPasswordFromUser(Scanner scanner, String prompt) {
+        System.out.print(prompt);
+        return scanner.nextLine();
+    }
+
+    private static int getPasswordLengthFromUser(Scanner scanner) {
+        System.out.print("Enter the password length: ");
+        return scanner.nextInt();
+    }
+
+    private static boolean shouldIncludeSymbolsFromUser(Scanner scanner) {
+        System.out.print("Include symbols? (true/false): ");
+        return scanner.nextBoolean();
+    }
+
+    private static boolean shouldIncludeNumbersFromUser(Scanner scanner) {
+        System.out.print("Include numbers? (true/false): ");
+        return scanner.nextBoolean();
+    }
+
+    private static boolean shouldIncludeLettersFromUser(Scanner scanner) {
+        System.out.print("Include letters? (true/false): ");
+        return scanner.nextBoolean();
     }
 }
